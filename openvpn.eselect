@@ -1,0 +1,102 @@
+# -*-eselect-*-  vim: ft=eselect
+# Copyright 2016 ShCoder
+# Distributed under the terms of the MIT
+
+DESCRIPTION="Manage the /etc/openvpn/openvpn.conf symlink"
+MAINTAINER="shcoder.ru@ya.ru"
+VERSION="20160127"
+
+# find a list of openvpn symlink targets
+find_targets() {
+    local f
+    for f in "${EROOT}"/opt/openvpn/config/*; do
+        [[ -f ${f} ]] && basename "${f}"
+    done
+}
+
+# remove the openvpn symlink
+remove_symlink() {
+    rm "${EROOT}/etc/openvpn/openvpn.conf"
+}
+
+# set the openvpn symlink
+set_symlink() {
+    local target=$1
+
+    if is_number "${target}"; then
+        local targets=( $(find_targets) )
+        target=${targets[target-1]}
+    fi
+
+    [[ -z ${target} || ! -f ${EROOT}/opt/openvpn/config/${target} ]] \
+        && die -q "Target \"$1\" doesn't appear to be valid!"
+
+    ln -s "${EROOT}/opt/openvpn/config/${target}" "${EROOT}/etc/openvpn/openvpn.conf"
+}
+
+### show action ###
+
+describe_show() {
+    echo "Show the current openvpn symlink"
+}
+
+do_show() {
+    write_list_start "Current openvpn symlink:"
+    if [[ -L ${EROOT}/etc/openvpn/openvpn.conf ]]; then
+        local openvpn=$(canonicalise "${EROOT}/etc/openvpn/openvpn.conf")
+        write_kv_list_entry "${openvpn%/}" ""
+    else
+        write_kv_list_entry "(unset)" ""
+    fi
+}
+
+### list action ###
+
+describe_list() {
+    echo "List available openvpn symlink targets"
+}
+
+do_list() {
+    local i targets=( $(find_targets) )
+
+    write_list_start "Available openvpn symlink targets:"
+    for (( i = 0; i < ${#targets[@]}; i++ )); do
+        # highlight the target where the symlink is pointing to
+        [[ ${targets[i]} = \
+            $(basename "$(canonicalise "${EROOT}/etc/openvpn/openvpn.conf")") ]] \
+            && targets[i]=$(highlight_marker "${targets[i]}")
+    done
+    write_numbered_list -m "(none found)" "${targets[@]}"
+}
+
+### set action ###
+
+describe_set() {
+    echo "Set a new openvpn symlink target"
+}
+
+describe_set_parameters() {
+    echo "<target>"
+}
+
+describe_set_options() {
+    echo "target : Target name or number (from 'list' action)"
+}
+
+do_set() {
+    [[ -z $1 ]] && die -q "You didn't tell me what to set the symlink to"
+    [[ $# -gt 1 ]] && die -q "Too many parameters"
+
+    if [[ -L ${EROOT}/etc/openvpn/openvpn.conf ]]; then
+        # existing symlink
+        remove_symlink || die -q "Couldn't remove existing symlink"
+        set_symlink "$1" || die -q "Couldn't set a new symlink"
+	service openvpn restart
+    elif [[ -e ${EROOT}/etc/openvpn/openvpn.conf ]]; then
+        # we have something strange
+        die -q "${EROOT}/etc/openvpn/openvpn.conf exists but is not a symlink"
+    else
+        set_symlink "$1" || die -q "Couldn't set a new symlink"
+    fi
+}
+
