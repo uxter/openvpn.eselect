@@ -1,8 +1,6 @@
 # openvpn.eselect
 Gentoo openvpn.eselect - chose openvpn config
 
-**ATTENTION! This script replace /etc/openvpn/openvpn.conf on config soft link.**
-
 ## Installing
 ``` bash
 git clone https://github.com/uxter/openvpn.eselect.git
